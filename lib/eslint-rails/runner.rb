@@ -3,6 +3,8 @@ require 'colorize'
 module ESLintRails
   class Runner
     include ActionView::Helpers::JavaScriptHelper
+    
+    JAVASCRIPT_EXTENSIONS = %w(.js .jsx)
 
     def initialize(file)
       @file = normalize_infile(file)
@@ -28,7 +30,7 @@ module ESLintRails
     end
     
     def assets
-      all_js_assets = Rails.application.assets.each_file.to_a.select { |pn| pn.extname == '.js' }
+      all_js_assets = Rails.application.assets.each_file.to_a.select { |pn| JAVASCRIPT_EXTENSIONS.include?(pn.extname) }
       
       assets = all_js_assets.select{|a| is_descendant?(@file, a)}
 
@@ -39,11 +41,24 @@ module ESLintRails
       @eslint_js ||= Rails.application.assets['eslint'].to_s
     end
     
+    def eslint_plugin_js 
+      @eslint_plugin_js ||= begin
+        plugins.map do |plugin_name|
+          Rails.application.assets["plugins/eslint-plugin-#{plugin_name}"].to_s
+        end.join('\n')
+      end
+    end
+    
+    def plugins
+      JSON.parse(Config.read)['plugins'] || []
+    end
+    
     def warning_hashes(file_content)
       ExecJS.eval <<-JS
         function () {
           window = this;
           #{eslint_js};
+          #{eslint_plugin_js};
           return eslint.verify('#{escape_javascript(file_content)}', #{Config.read});
         }()
       JS
