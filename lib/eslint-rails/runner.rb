@@ -41,8 +41,16 @@ module ESLintRails
       @eslint_js ||= Rails.application.assets['eslint'].to_s
     end
     
-    def react_plugin_js 
-      @react_plugin_js ||= Rails.application.assets['plugins/eslint-plugin-react'].to_s
+    def eslint_plugin_js 
+      @eslint_plugin_js ||= begin
+        plugins.map do |plugin_name|
+          Rails.application.assets["plugins/eslint-plugin-#{plugin_name}"].to_s
+        end.join('\n')
+      end
+    end
+    
+    def plugins
+      JSON.parse(Config.read)['plugins'] || []
     end
     
     def warning_hashes(file_content)
@@ -50,7 +58,7 @@ module ESLintRails
         function () {
           window = this;
           #{eslint_js};
-          #{react_plugin_js};
+          #{eslint_plugin_js};
           return eslint.verify('#{escape_javascript(file_content)}', #{Config.read});
         }()
       JS
